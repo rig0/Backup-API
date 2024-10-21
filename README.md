@@ -1,11 +1,32 @@
 # Backup-API
+An API that fetches remote files and backups to store locally. Intended to run on a NAS. Tested on Debian 12
 
-An API that fetches remote files to backup. Intended to run on a NAS to fetch remote backups.
+### Prerequisites
+```bash
+sudo apt install python3-full python3-env python3-pip rsync git
+```
 
-Create an .env file and store the AUTH_TOKEN there.
+### Use `start-api.sh` to start api in virtual environment
+```bash
+chmod +x ./start-api.sh && ./start-api.sh
+```
 
-Example curl:
+### Use `update.sh` to fetch latest version
+```bash
+chmod +x ./update.sh && ./update.sh
+```
 
+## Example .env
+
+Create a .env file in the same directory as the api and store the AUTH_TOKEN there.
+
+```bash
+AUTH_TOKEN=API-Token
+```
+
+## Example API call using curl
+
+```bash
 curl --location 'http://SERVER_IP:7792/backup' \
 --header 'Content-Type: application/json' \
 --header 'Authorization: Bearer AUTH_TOKEN' \
@@ -15,3 +36,69 @@ curl --location 'http://SERVER_IP:7792/backup' \
     "remote_folder": "/remote/folder/",
     "local_folder": "/local/folder/"
 }'
+```
+
+## Using the  `/gitea` entry point
+
+This entry point is for fetching a gitea backup from a public server.
+For this entry we need to hande a few variables locally.
+
+### Edit the .nvm file with the GITEA_ variables
+
+```bash
+AUTH_TOKEN=API-Token
+# gitea specific options
+GITEA_HOST=Gitea-Server-IP
+GITEA_USER=Gitea-Server-User
+GITEA_LOCAL_DIR=/nas/backup/directory
+```
+### Example API call of for gitea backup
+
+```bash
+curl --location 'http://SERVER_IP:7792/gitea' \
+--header "Content-Type: application/json" \
+--header "Authorization: Bearer $AUTH_TOKEN" \
+--data "{
+    \"backup_folder\": \"$BACKUP_DIR\"
+}"
+```
+
+## System service
+#### To create a system service
+```bash
+sudo nano /etc/systemd/system/backup-api.service
+```
+
+#### Paste the following & change accordingly
+```bash
+[Unit]
+Description=Backup API
+After=network.target
+
+[Service]
+User=user
+Group=user
+WorkingDirectory=/home/user/backup-api
+ExecStart=/home/user/backup-api/start-api.sh
+Restart=always
+
+Environment="PATH=/home/user/backup-api/venv/bin:/usr/bin"
+
+[Install]
+WantedBy=multi-user.target
+```
+
+#### Reload daemon
+```bash
+sudo systemctl daemon-reload
+```
+
+#### Start service
+```bash
+sudo systemctl start backup-api
+```
+
+#### Enable on boot
+```bash
+sudo systemctl enable backup-api
+```
