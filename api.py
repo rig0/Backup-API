@@ -44,6 +44,27 @@ def add_host_to_known_hosts(remote_host):
         print(f"Error adding host to known_hosts: {e}")
         return False
 
+def run_rsync(remote_user, remote_host, remote_folder, local_folder):
+    # Construct the rsync command
+    rsync_command = [
+        'rsync',
+        '-avz',
+        f'{remote_user}@{remote_host}:{remote_folder}',
+        local_folder
+    ]
+    try:
+        # Run the rsync command
+        result = subprocess.run(rsync_command, capture_output=True, text=True)
+        
+        if result.returncode == 0:
+            return jsonify({'message': 'Backup completed successfully', 'output': result.stdout}), 200
+        else:
+            return jsonify({'message': 'Backup failed', 'error': result.stderr}), 500
+    except Exception as e:
+        return jsonify({'message': 'An error occurred', 'error': str(e)}), 500
+
+
+
 @app.route('/backup', methods=['POST'])
 @token_required
 def backup():
@@ -57,24 +78,26 @@ def backup():
     if not add_host_to_known_hosts(remote_host):
         return jsonify({'message': 'Failed to add host to known_hosts'}), 500
 
-    # Construct the rsync command
-    rsync_command = [
-        'rsync',
-        '-avz',
-        f'{remote_user}@{remote_host}:{remote_folder}',
-        local_folder
-    ]
+    rsync_result = run_rsync(remote_user, remote_host, remote_folder, local_folder)
+    return rsync_result
+    
 
-    try:
-        # Run the rsync command
-        result = subprocess.run(rsync_command, capture_output=True, text=True)
-        
-        if result.returncode == 0:
-            return jsonify({'message': 'Backup completed successfully', 'output': result.stdout}), 200
-        else:
-            return jsonify({'message': 'Backup failed', 'error': result.stderr}), 500
-    except Exception as e:
-        return jsonify({'message': 'An error occurred', 'error': str(e)}), 500
+@app.route('/gitea', methods=['POST'])
+@token_required
+def gitea():
+    data = request.get_json()
+    backup_folder = data.get('backup_folder')
+
+    GITEA_HOST = os.getenv('GITEA_HOST')
+    GITEA_USER = os.getenv('GITEA_USER')
+    GITEA_LOCAL_DIR = os.getenv('GITEA_LOCAL_DIR')
+
+    # Add the remote host's key to known_hosts
+    if not add_host_to_known_hosts(GITEA_HOST):
+        return jsonify({'message': 'Failed to add host to known_hosts'}), 500
+
+    rsync_result = run_rsync(GITEA_USER, GITEA_HOST, backup_folder, GITEA_LOCAL_DIR)
+    return rsync_result
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=7792)
