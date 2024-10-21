@@ -1,0 +1,17 @@
+[Unit]
+Description=Backup API
+After=network.target
+
+[Service]
+User=rambo
+Group=rambo
+WorkingDirectory=/home/rambo/backup-api
+ExecStart=/home/rambo/backup-api/start-api.sh
+Restart=always
+
+Environment="PATH=/home/rambo/backup-api/venv/bin:/usr/bin"
+
+[Install]
+WantedBy=multi-user.target
+
+#sudo nano /etc/systemd/system/backup-api.service
