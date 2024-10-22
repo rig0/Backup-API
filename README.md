@@ -74,12 +74,12 @@ curl --location 'http://SERVER_IP:7792/gitea' \
 ```
 
 ## System service
-#### To create a system service
+### Create a system service
 ```bash
 sudo nano /etc/systemd/system/backup-api.service
 ```
 
-#### Paste the following & change accordingly
+### Paste the following & change accordingly
 ```bash
 [Unit]
 Description=Backup API
@@ -98,17 +98,17 @@ Environment="PATH=/home/user/backup-api/venv/bin:/usr/bin"
 WantedBy=multi-user.target
 ```
 
-#### Reload daemon
+### Reload daemon
 ```bash
 sudo systemctl daemon-reload
 ```
 
-#### Start service
+### Start service
 ```bash
 sudo systemctl start backup-api
 ```
 
-#### Enable on boot
+### Enable on boot
 ```bash
 sudo systemctl enable backup-api
 ```
