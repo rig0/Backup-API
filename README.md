@@ -13,12 +13,16 @@ git clone https://rigslab.com/Rambo/Backup-API.git
 ### Use `start-api.sh` to start api in virtual environment
 ```bash
 cd Backup-API
+```
+```bash
 chmod +x ./start-api.sh && ./start-api.sh
 ```
 
 ### Use `update.sh` to fetch latest version
 ```bash
 cd Backup-API
+```
+```bash
 chmod +x ./update.sh && ./update.sh
 ```
 
