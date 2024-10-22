@@ -49,6 +49,7 @@ def run_rsync(remote_user, remote_host, remote_folder, local_folder):
     rsync_command = [
         'rsync',
         '-avz',
+        '--no-g',
         f'{remote_user}@{remote_host}:{remote_folder}',
         local_folder
     ]

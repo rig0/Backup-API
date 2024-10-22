@@ -1,5 +1,5 @@
 # Backup-API
-An API that fetches remote files and backups to store locally. Intended to run on a NAS. Tested on Debian 12
+An API that fetches remote files and backups to store locally. Intended to run on a NAS or Backup Server. Tested on Debian 12
 
 ### Prerequisites
 ```bash
@@ -28,10 +28,10 @@ chmod +x ./update.sh && ./update.sh
 
 ## Example .env
 
-Create a .env file in the same directory as the api and store the AUTH_TOKEN there.
+Create a .env file in the same directory as the api. Then [generate](https://it-tools.tech/token-generator) and store the AUTH_TOKEN there.
 
 ```bash
-AUTH_TOKEN=API-Token
+AUTH_TOKEN=Your-Generated-API-Token-Here
 ```
 
 ## Example API call using curl
