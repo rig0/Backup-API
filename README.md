@@ -5,14 +5,20 @@ An API that fetches remote files and backups to store locally. Intended to run o
 ```bash
 sudo apt install python3-full python3-env python3-pip rsync git
 ```
+### Clone
+```bash
+git clone https://rigslab.com/Rambo/Backup-API.git
+```
 
 ### Use `start-api.sh` to start api in virtual environment
 ```bash
+cd Backup-API
 chmod +x ./start-api.sh && ./start-api.sh
 ```
 
 ### Use `update.sh` to fetch latest version
 ```bash
+cd Backup-API
 chmod +x ./update.sh && ./update.sh
 ```
 
