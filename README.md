@@ -48,8 +48,7 @@ curl --location 'http://SERVER_IP:7792/backup' \
 }'
 ```
 
-## Using the  `/gitea` entry point
-
+## Using the  `/gitea` entry point (soon to be obsolete)
 This entry point is for fetching a gitea backup from a public server.
 For this entry we need to hande a few variables locally.
 

@@ -61,6 +61,9 @@ def run_rsync(remote_user, remote_host, remote_folder, local_folder):
             # change permissions to allow group rwx
             subprocess.run(['chmod', '-R', '770', local_folder], capture_output=True, text=True)
 
+            # run cleanup script
+            subprocess.run(['./cleanup-sh', local_folder], capture_output=True, text=True)
+
             return jsonify({'message': 'Backup completed successfully', 'output': result.stdout}), 200
         else:
             return jsonify({'message': 'Backup failed', 'error': result.stderr}), 500
