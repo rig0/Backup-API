@@ -62,9 +62,10 @@ def run_rsync(remote_user, remote_host, remote_folder, local_folder):
             subprocess.run(['chmod', '-R', '770', local_folder], capture_output=True, text=True)
 
             # run cleanup script
-            sub_folder = os.path.basename(remote_folder)
-            full_path = os.path.join(local_folder, sub_folder)
-            subprocess.run(['./cleanup.sh', full_path], capture_output=True, text=True)
+            #sub_folder = os.path.basename(remote_folder)
+            #full_path = os.path.join(local_folder, sub_folder)
+            BACKUP_DIR = os.getenv('BACKUP_DIR')
+            subprocess.run(['./cleanup.sh', BACKUP_DIR], capture_output=True, text=True)
 
             return jsonify({'message': 'Backup completed successfully', 'output': result.stdout}), 200
         else:
