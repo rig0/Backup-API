@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify
 import subprocess
-import os
+import os, blob
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -44,6 +44,46 @@ def add_host_to_known_hosts(remote_host):
         print(f"Error adding host to known_hosts: {e}")
         return False
 
+def cleanup_backups(root_dir, keep=7):
+    """
+    Keeps only the most recent N (.tar.gz) backups
+    inside Gitea and Dockge structure.
+    """
+    # --- Gitea backups ---
+    gitea_dir = os.path.join(root_dir, "Gitea")
+    _cleanup_dir(gitea_dir, keep)
+
+    # --- Dockge backups (one per server) ---
+    dockge_root = os.path.join(root_dir, "Dockge")
+    if os.path.isdir(dockge_root):
+        for server_dir in os.listdir(dockge_root):
+            full_path = os.path.join(dockge_root, server_dir)
+            if os.path.isdir(full_path):
+                _cleanup_dir(full_path, keep)
+
+
+def _cleanup_dir(dir_path, keep):
+    """Helper: cleanup a single directory"""
+    if not os.path.isdir(dir_path):
+        return
+
+    # Find all .tar.gz files
+    files = glob.glob(os.path.join(dir_path, "*.tar.gz"))
+
+    # Sort by modification time, newest first
+    files.sort(key=os.path.getmtime, reverse=True)
+
+    # Keep only the first N
+    old_files = files[keep:]
+
+    for f in old_files:
+        try:
+            os.remove(f)
+            print(f"Deleted old backup: {f}")
+        except Exception as e:
+            print(f"Error deleting {f}: {e}")
+
+
 def run_rsync(remote_user, remote_host, remote_folder, local_folder):
     # Construct the rsync command
     rsync_command = [
@@ -61,11 +101,11 @@ def run_rsync(remote_user, remote_host, remote_folder, local_folder):
             # change permissions to allow group rwx
             subprocess.run(['chmod', '-R', '770', local_folder], capture_output=True, text=True)
 
-            # run cleanup script
-            #sub_folder = os.path.basename(remote_folder)
-            #full_path = os.path.join(local_folder, sub_folder)
+            # run cleanup
             BACKUP_DIR = os.getenv('BACKUP_DIR')
-            subprocess.run(['./cleanup.sh', BACKUP_DIR], capture_output=True, text=True)
+            if BACKUP_DIR:
+                cleanup_backups(BACKUP_DIR, keep=7)
+
 
             return jsonify({'message': 'Backup completed successfully', 'output': result.stdout}), 200
         else:
