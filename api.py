@@ -65,23 +65,24 @@ def cleanup_backups(root_dir, keep=7):
 def _cleanup_dir(dir_path, keep):
     """Helper: cleanup a single directory"""
     if not os.path.isdir(dir_path):
+        print(f"Skipping {dir_path} (not a directory)")
         return
 
-    # Find all .tar.gz files
     files = glob.glob(os.path.join(dir_path, "*.tar.gz"))
-
-    # Sort by modification time, newest first
     files.sort(key=os.path.getmtime, reverse=True)
 
-    # Keep only the first N
-    old_files = files[keep:]
+    print(f"Checking {dir_path}, found {len(files)} backups")
 
+    old_files = files[keep:]
+    if not old_files:
+        print("Nothing to delete")
     for f in old_files:
         try:
             os.remove(f)
             print(f"Deleted old backup: {f}")
         except Exception as e:
             print(f"Error deleting {f}: {e}")
+
 
 
 def run_rsync(remote_user, remote_host, remote_folder, local_folder):
