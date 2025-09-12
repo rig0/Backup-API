@@ -1,6 +1,6 @@
 # Backup-API
 An API that fetches remote files and backups to store locally. Intended to run on a NAS or Backup Server. Tested on Debian 12
-
+(WIP)
 ### Prerequisites
 ```bash
 sudo apt install python3-full python3-env python3-pip rsync git
