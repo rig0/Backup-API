@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify
 import subprocess
-import os, glob, datetime
+import os, glob
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -24,8 +24,16 @@ def token_required(f):
 def add_host_to_known_hosts(remote_host):
     """Use ssh-keyscan to add the host key to known_hosts"""
     try:
-        result = subprocess.run(['ssh-keyscan', remote_host], capture_output=True, text=True)
+        # Use ssh-keyscan to retrieve the SSH key from the remote host
+        result = subprocess.run(
+            ['ssh-keyscan', remote_host],
+            capture_output=True,
+            text=True
+        )
+
+        # Check if the command was successful
         if result.returncode == 0:
+            # Append the key to the known_hosts file
             known_hosts_path = os.path.expanduser('~/.ssh/known_hosts')
             with open(known_hosts_path, 'a') as f:
                 f.write(result.stdout)
@@ -36,41 +44,37 @@ def add_host_to_known_hosts(remote_host):
         print(f"Error adding host to known_hosts: {e}")
         return False
 
-def cleanup_backups(root_dir, keep=7):
-    """
-    Keeps only the most recent N (.tar.gz) backups inside all subfolders of root_dir.
-    """
-    if not os.path.isdir(root_dir):
-        print(f"[cleanup] Root dir {root_dir} does not exist")
-        return
+def _cleanup_dir(dir_path, keep):
+    files = glob.glob(os.path.join(dir_path, "**", "*.tar.gz"), recursive=True)
+    files.sort(reverse=True)  # sort by filename, newest first
+    old_files = files[keep:]
+    for f in old_files:
+        try:
+            os.remove(f)
+            print(f"Deleted {f}")
+        except Exception as e:
+            print(f"Failed to delete {f}: {e}")
 
-    # Walk all subdirectories
-    for dirpath, _, _ in os.walk(root_dir):
-        _cleanup_dir(dirpath, keep)
 
 def _cleanup_dir(dir_path, keep):
-    """Helper: cleanup a single directory recursively, keep newest by filename, never delete today"""
+    """Helper: cleanup a single directory, recursive search"""
     if not os.path.isdir(dir_path):
+        print(f"[cleanup] Skipping {dir_path}, not a directory")
         return
 
-    # Find all .tar.gz files
-    files = glob.glob(os.path.join(dir_path, "*.tar.gz"))
-    if not files:
-        return
+    # Find all .tar.gz files recursively
+    files = glob.glob(os.path.join(dir_path, "**", "*.tar.gz"), recursive=True)
+    print(f"[cleanup] Found {len(files)} backups in {dir_path}")
 
-    today = datetime.date.today()
-    # Filter out today's files
-    files_to_consider = [f for f in files if datetime.date.fromtimestamp(os.path.getmtime(f)) < today]
-
-    if len(files_to_consider) <= keep:
+    if len(files) <= keep:
         print(f"[cleanup] Nothing to delete in {dir_path}")
         return
 
-    # Sort by filename (assuming backup filenames include date, newest first)
-    files_to_consider.sort(reverse=True)
+    # Sort by modification time, newest first
+    files.sort(key=os.path.getmtime, reverse=True)
 
-    # Delete older backups beyond 'keep'
-    old_files = files_to_consider[keep:]
+    # Files to delete (older than `keep`)
+    old_files = files[keep:]
     for f in old_files:
         try:
             os.remove(f)
@@ -78,24 +82,39 @@ def _cleanup_dir(dir_path, keep):
         except Exception as e:
             print(f"[cleanup] Failed to delete {f}: {e}")
 
+
+
+
 def run_rsync(remote_user, remote_host, remote_folder, local_folder):
-    rsync_command = ['rsync', '-avz', f'{remote_user}@{remote_host}:{remote_folder}', local_folder]
+    # Construct the rsync command
+    rsync_command = [
+        'rsync',
+        '-avz',
+        #'--no-g',
+        f'{remote_user}@{remote_host}:{remote_folder}',
+        local_folder
+    ]
     try:
+        # Run the rsync command
         result = subprocess.run(rsync_command, capture_output=True, text=True)
+        
         if result.returncode == 0:
-            # Change permissions
+            # change permissions to allow group rwx
             subprocess.run(['chmod', '-R', '770', local_folder], capture_output=True, text=True)
 
-            # Run cleanup
+            # run cleanup
             BACKUP_DIR = os.getenv('BACKUP_DIR')
             if BACKUP_DIR:
                 cleanup_backups(BACKUP_DIR, keep=7)
+
 
             return jsonify({'message': 'Backup completed successfully', 'output': result.stdout}), 200
         else:
             return jsonify({'message': 'Backup failed', 'error': result.stderr}), 500
     except Exception as e:
         return jsonify({'message': 'An error occurred', 'error': str(e)}), 500
+
+
 
 @app.route('/backup', methods=['POST'])
 @token_required
@@ -106,10 +125,13 @@ def backup():
     remote_folder = data.get('remote_folder')
     local_folder = data.get('local_folder')
 
+    # Add the remote host's key to known_hosts
     if not add_host_to_known_hosts(remote_host):
         return jsonify({'message': 'Failed to add host to known_hosts'}), 500
 
-    return run_rsync(remote_user, remote_host, remote_folder, local_folder)
+    rsync_result = run_rsync(remote_user, remote_host, remote_folder, local_folder)
+    return rsync_result
+    
 
 @app.route('/gitea', methods=['POST'])
 @token_required
@@ -121,10 +143,12 @@ def gitea():
     GITEA_USER = os.getenv('GITEA_USER')
     GITEA_LOCAL_DIR = os.getenv('GITEA_LOCAL_DIR')
 
+    # Add the remote host's key to known_hosts
     if not add_host_to_known_hosts(GITEA_HOST):
         return jsonify({'message': 'Failed to add host to known_hosts'}), 500
 
-    return run_rsync(GITEA_USER, GITEA_HOST, backup_folder, GITEA_LOCAL_DIR)
+    rsync_result = run_rsync(GITEA_USER, GITEA_HOST, backup_folder, GITEA_LOCAL_DIR)
+    return rsync_result
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=7792)
