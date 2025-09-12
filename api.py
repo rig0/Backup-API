@@ -63,25 +63,31 @@ def cleanup_backups(root_dir, keep=7):
 
 
 def _cleanup_dir(dir_path, keep):
-    """Helper: cleanup a single directory"""
+    """Helper: cleanup a single directory, recursive search"""
     if not os.path.isdir(dir_path):
-        print(f"Skipping {dir_path} (not a directory)")
+        print(f"[cleanup] Skipping {dir_path}, not a directory")
         return
 
-    files = glob.glob(os.path.join(dir_path, "*.tar.gz"))
+    # Find all .tar.gz files recursively
+    files = glob.glob(os.path.join(dir_path, "**", "*.tar.gz"), recursive=True)
+    print(f"[cleanup] Found {len(files)} backups in {dir_path}")
+
+    if len(files) <= keep:
+        print(f"[cleanup] Nothing to delete in {dir_path}")
+        return
+
+    # Sort by modification time, newest first
     files.sort(key=os.path.getmtime, reverse=True)
 
-    print(f"Checking {dir_path}, found {len(files)} backups")
-
+    # Files to delete (older than `keep`)
     old_files = files[keep:]
-    if not old_files:
-        print("Nothing to delete")
     for f in old_files:
         try:
             os.remove(f)
-            print(f"Deleted old backup: {f}")
+            print(f"[cleanup] Deleted {f}")
         except Exception as e:
-            print(f"Error deleting {f}: {e}")
+            print(f"[cleanup] Failed to delete {f}: {e}")
+
 
 
 
