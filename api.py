@@ -44,6 +44,24 @@ def add_host_to_known_hosts(remote_host):
         print(f"Error adding host to known_hosts: {e}")
         return False
 
+def cleanup_backups(root_dir, keep=7):
+    """
+    Keeps only the most recent N (.tar.gz) backups
+    inside Gitea and Dockge structure.
+    """
+    # --- Gitea backups ---
+    gitea_dir = os.path.join(root_dir, "Gitea")
+    _cleanup_dir(gitea_dir, keep)
+
+    # --- Dockge backups (one per server) ---
+    dockge_root = os.path.join(root_dir, "Dockge")
+    if os.path.isdir(dockge_root):
+        for server_dir in os.listdir(dockge_root):
+            full_path = os.path.join(dockge_root, server_dir)
+            if os.path.isdir(full_path):
+                _cleanup_dir(full_path, keep)
+
+
 def _cleanup_dir(dir_path, keep):
     files = glob.glob(os.path.join(dir_path, "**", "*.tar.gz"), recursive=True)
     files.sort(reverse=True)  # sort by filename, newest first
@@ -54,35 +72,6 @@ def _cleanup_dir(dir_path, keep):
             print(f"Deleted {f}")
         except Exception as e:
             print(f"Failed to delete {f}: {e}")
-
-
-def _cleanup_dir(dir_path, keep):
-    """Helper: cleanup a single directory, recursive search"""
-    if not os.path.isdir(dir_path):
-        print(f"[cleanup] Skipping {dir_path}, not a directory")
-        return
-
-    # Find all .tar.gz files recursively
-    files = glob.glob(os.path.join(dir_path, "**", "*.tar.gz"), recursive=True)
-    print(f"[cleanup] Found {len(files)} backups in {dir_path}")
-
-    if len(files) <= keep:
-        print(f"[cleanup] Nothing to delete in {dir_path}")
-        return
-
-    # Sort by modification time, newest first
-    files.sort(key=os.path.getmtime, reverse=True)
-
-    # Files to delete (older than `keep`)
-    old_files = files[keep:]
-    for f in old_files:
-        try:
-            os.remove(f)
-            print(f"[cleanup] Deleted {f}")
-        except Exception as e:
-            print(f"[cleanup] Failed to delete {f}: {e}")
-
-
 
 
 def run_rsync(remote_user, remote_host, remote_folder, local_folder):
