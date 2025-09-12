@@ -59,19 +59,34 @@ def cleanup_backups(root_dir, keep=7):
         for server_dir in os.listdir(dockge_root):
             full_path = os.path.join(dockge_root, server_dir)
             if os.path.isdir(full_path):
+                # apply cleanup to this folder
                 _cleanup_dir(full_path, keep)
+
+                # apply cleanup to any subfolders (optional)
+                for subfolder in os.listdir(full_path):
+                    subfolder_path = os.path.join(full_path, subfolder)
+                    if os.path.isdir(subfolder_path):
+                        _cleanup_dir(subfolder_path, keep)
+
 
 
 def _cleanup_dir(dir_path, keep):
-    files = glob.glob(os.path.join(dir_path, "**", "*.tar.gz"), recursive=True)
-    files.sort(reverse=True)  # sort by filename, newest first
+    # Only look at .tar.gz files directly inside this folder
+    files = glob.glob(os.path.join(dir_path, "*.tar.gz"))
+    if len(files) <= keep:
+        return
+
+    # Sort by filename (assuming filenames include date)
+    files.sort(reverse=True)
     old_files = files[keep:]
+
     for f in old_files:
         try:
             os.remove(f)
             print(f"Deleted {f}")
         except Exception as e:
             print(f"Failed to delete {f}: {e}")
+
 
 
 def run_rsync(remote_user, remote_host, remote_folder, local_folder):
