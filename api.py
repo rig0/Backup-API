@@ -21,12 +21,12 @@ def token_required(f):
     wrapper.__name__ = f.__name__
     return wrapper
 
-def add_host_to_known_hosts(remote_host):
-    """Use ssh-keyscan to add the host key to known_hosts"""
+def add_host_to_known_hosts(remote_host, ssh_port=22):
+    """Use ssh-keyscan to add the host key (optionally on a custom port) to known_hosts."""
     try:
         # Use ssh-keyscan to retrieve the SSH key from the remote host
         result = subprocess.run(
-            ['ssh-keyscan', remote_host],
+            ['ssh-keyscan', '-p', str(ssh_port), remote_host],
             capture_output=True,
             text=True
         )
@@ -35,6 +35,7 @@ def add_host_to_known_hosts(remote_host):
         if result.returncode == 0:
             # Append the key to the known_hosts file
             known_hosts_path = os.path.expanduser('~/.ssh/known_hosts')
+            os.makedirs(os.path.dirname(known_hosts_path), exist_ok=True)
             with open(known_hosts_path, 'a') as f:
                 f.write(result.stdout)
             return True
@@ -49,10 +50,7 @@ def cleanup_backups(root_dir, keep=7):
     Keeps only the most recent N (.tar.gz) backups
     inside Gitea and Dockge structure.
     """
-    # --- Gitea backups ---
-    gitea_dir = os.path.join(root_dir, "Gitea")
-    _cleanup_dir(gitea_dir, keep)
-
+    
     # --- Dockge backups (one per server) ---
     dockge_root = os.path.join(root_dir, "Dockge")
     if os.path.isdir(dockge_root):
@@ -89,12 +87,14 @@ def _cleanup_dir(dir_path, keep):
 
 
 
-def run_rsync(remote_user, remote_host, remote_folder, local_folder):
+def run_rsync(remote_user, remote_host, remote_folder, local_folder, ssh_port=22):
     # Construct the rsync command
+    ssh_command = ['ssh', '-p', str(ssh_port)]
     rsync_command = [
         'rsync',
         '-avz',
-        #'--no-g',
+        '-e',
+        ' '.join(ssh_command),
         f'{remote_user}@{remote_host}:{remote_folder}',
         local_folder
     ]
@@ -128,30 +128,18 @@ def backup():
     remote_host = data.get('remote_host')
     remote_folder = data.get('remote_folder')
     local_folder = data.get('local_folder')
+    ssh_port = data.get('ssh_port', 22)
+
+    try:
+        ssh_port = int(ssh_port)
+    except (TypeError, ValueError):
+        return jsonify({'message': 'Invalid ssh_port value'}), 400
 
     # Add the remote host's key to known_hosts
-    if not add_host_to_known_hosts(remote_host):
+    if not add_host_to_known_hosts(remote_host, ssh_port=ssh_port):
         return jsonify({'message': 'Failed to add host to known_hosts'}), 500
 
-    rsync_result = run_rsync(remote_user, remote_host, remote_folder, local_folder)
-    return rsync_result
-    
-
-@app.route('/gitea', methods=['POST'])
-@token_required
-def gitea():
-    data = request.get_json()
-    backup_folder = data.get('backup_folder')
-
-    GITEA_HOST = os.getenv('GITEA_HOST')
-    GITEA_USER = os.getenv('GITEA_USER')
-    GITEA_LOCAL_DIR = os.getenv('GITEA_LOCAL_DIR')
-
-    # Add the remote host's key to known_hosts
-    if not add_host_to_known_hosts(GITEA_HOST):
-        return jsonify({'message': 'Failed to add host to known_hosts'}), 500
-
-    rsync_result = run_rsync(GITEA_USER, GITEA_HOST, backup_folder, GITEA_LOCAL_DIR)
+    rsync_result = run_rsync(remote_user, remote_host, remote_folder, local_folder, ssh_port=ssh_port)
     return rsync_result
 
 if __name__ == '__main__':
